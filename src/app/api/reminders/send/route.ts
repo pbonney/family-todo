@@ -3,6 +3,8 @@ import { prisma } from "@/lib/prisma";
 import { sendReminderEmail } from "@/lib/email";
 import { format } from "date-fns";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest) {
   // Verify cron secret in production
   if (process.env.CRON_SECRET) {
