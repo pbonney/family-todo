@@ -1,0 +1,128 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ── NextAuth required models ──────────────────────────────
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ── App models ────────────────────────────────────────────
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  familyId      String?
+
+  accounts      Account[]
+  sessions      Session[]
+  family        Family?        @relation(fields: [familyId], references: [id])
+  createdTasks  Task[]         @relation("CreatedBy")
+  assignedTasks TaskAssignee[]
+  sentInvites   Invitation[]   @relation("InvitedBy")
+}
+
+model Family {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique
+  createdAt  DateTime @default(now())
+
+  members     User[]
+  tasks       Task[]
+  invitations Invitation[]
+}
+
+model Task {
+  id          String    @id @default(cuid())
+  title       String
+  description String?
+  list        String    @default("backlog") // "priority" | "backlog"
+  status      String    @default("pending") // "pending" | "done"
+  priority    Int       @default(3)         // 1 (urgent) → 5 (someday)
+  position    Int       @default(0)
+  dueDate     DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  familyId    String
+  createdById String
+
+  family    Family         @relation(fields: [familyId], references: [id])
+  createdBy User           @relation("CreatedBy", fields: [createdById], references: [id])
+  assignees TaskAssignee[]
+  reminders Reminder[]
+}
+
+model TaskAssignee {
+  id     String @id @default(cuid())
+  taskId String
+  userId String
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([taskId, userId])
+}
+
+model Reminder {
+  id          String   @id @default(cuid())
+  taskId      String
+  type        String   @default("email") // "email" | "push"
+  scheduledAt DateTime
+  sent        Boolean  @default(false)
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+}
+
+model Invitation {
+  id          String   @id @default(cuid())
+  email       String
+  familyId    String
+  invitedById String
+  accepted    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  family    Family @relation(fields: [familyId], references: [id])
+  invitedBy User   @relation("InvitedBy", fields: [invitedById], references: [id])
+}
